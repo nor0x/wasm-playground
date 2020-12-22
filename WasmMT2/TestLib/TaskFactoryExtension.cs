@@ -6,11 +6,11 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace WasmMT.Wasm.None
+
+namespace TestLib.Internal
 {
     public static class TaskFactoryExtension
     {
-
         private static void StartThread(Action threadAction)
         {
             Debug.WriteLine("StartThread: " + threadAction.ToString());
@@ -20,28 +20,17 @@ namespace WasmMT.Wasm.None
 
         public static Task StartLongRunningTask(this TaskFactory factory, Func<CancellationToken, Task> methodToStartInThread, CancellationToken token)
         {
-            return factory.StartNew(() =>
-            {
-                try
-                {
-                    methodToStartInThread(token).Wait(token);
-                }
-                catch (OperationCanceledException) { }
-
-            }, token, TaskCreationOptions.LongRunning, TaskScheduler.Default);
+            var tcs = new TaskCompletionSource<bool>();
+            StartThread(() => { methodToStartInThread(token).Wait(token); tcs.SetResult(false); });
+            return tcs.Task;
         }
 
         public static Task StartLongRunningTask(this TaskFactory factory, Action<CancellationToken> methodToStartInThread, CancellationToken token)
         {
-            return factory.StartNew(() =>
-            {
-                try
-                {
-                    methodToStartInThread(token);
-                }
-                catch (OperationCanceledException) { }
+            var tcs = new TaskCompletionSource<bool>();
+            StartThread(() => { methodToStartInThread(token); tcs.SetResult(false); });
+            return tcs.Task;
 
-            }, token, TaskCreationOptions.LongRunning, TaskScheduler.Default);
         }
     }
 }
